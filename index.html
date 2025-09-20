@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flores Amarillas</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="https://cdn-icons-png.flaticon.com/128/12674/12674062.png">
+  <style>
+    :root {
+      --bg1: #0b0712;
+      --bg2: #1a1626;
+      --accent: #ffd24a;
+      /* amarillo */
+      --soft: #ffeaa7;
+      font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      background: linear-gradient(180deg, var(--bg1), var(--bg2));
+      color: #fff;
+      overflow: hidden
+    }
+
+    canvas {
+      display: block;
+      position: absolute;
+      inset: 0
+    }
+
+    .ui {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      backdrop-filter: blur(6px) saturate(120%);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 12px;
+      border-radius: 12px;
+      max-width: 320px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6)
+    }
+
+    .ui h1 {
+      margin: 0;
+      font-size: 16px;
+      color: var(--soft)
+    }
+
+    .ui p {
+      margin: 6px 0 10px;
+      font-size: 13px;
+      opacity: 0.9
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      margin: 4px;
+      font-size: 13px
+    }
+
+    .hint {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 8px
+    }
+
+    .poem {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      max-width: 40%;
+      min-width: 240px;
+      padding: 14px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--soft)
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap
+    }
+
+    .footerNote {
+      font-size: 11px;
+      opacity: 0.6;
+      margin-top: 8px
+    }
+
+    .icon {
+      width: 28px;
+      height: 28px;
+      display: block;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      cursor: pointer;
+      margin: 4px;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: scale(1.05);
+      transition: all 0.2s ease;
+    }
+
+    @media (max-width:800px) {
+      .poem {
+        max-width: 60%;
+        font-size: 13px
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="c"></canvas>
+  <div class="ui" id="ui">
+    <h1>En este día</h1>
+    <p>Gracias por todo, te amo demasiado.
+      Gracias por hacer de mi alguien mejor.
+      Sé que tengo mucho por mejorar, pero estoy agradecido que sea a tu lado.</p>
+    <div class="controls">
+      <div class="btn" id="plantBtn">
+        <img src="https://cdn-icons-png.flaticon.com/128/2511/2511483.png" alt="Plantar" class="icon">
+      </div>
+      <div class="btn" id="rainBtn">
+        <img src="https://cdn-icons-png.flaticon.com/128/4150/4150897.png" alt="Lluvia" class="icon">
+      </div>
+      <div class="btn" id="saveBtn">
+        <img src="https://cdn-icons-png.flaticon.com/512/15492/15492126.png" alt="Guardar" class="icon">
+      </div>
+      <div class="btn" id="toggleMusic">
+        <img src="https://cdn-icons-png.flaticon.com/128/3567/3567880.png" alt="Música" class="icon">
+      </div>
+    </div>
+
+    <div class="footerNote">Haz clic/toca en el lienzo para plantar. Mantén pulsado para crear un jardín.</div>
+  </div>
+  <div class="poem" id="poem">
+    <strong>Un poema:</strong>
+    <div id="poemText">Planto una flor que guarda luz — cada pétalo, una promesa.</div>
+  </div>
+  <script>
+    // Flores amarillas para tu pareja — HTML5 Canvas + WebAudio
+    // Autor: ChatGPT (tu asistente obsesivo con detalles)
+
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width = innerWidth;
+    let H = canvas.height = innerHeight;
+
+    window.addEventListener('resize', () => { W = canvas.width = innerWidth; H = canvas.height = innerHeight });
+
+    // Utilidades
+    const rand = (a, b) => Math.random() * (b - a) + a;
+    const TAU = Math.PI * 2;
+
+    // Flower system
+    class Flower {
+      constructor(x, y, options = {}) {
+        this.x = x; this.y = y; this.scale = options.scale || rand(0.8, 1.6);
+        this.petalCount = options.petalCount || Math.floor(rand(6, 13));
+        this.radius = 18 * this.scale;
+        this.color = options.color || 'hsl(47 100% ' + rand(48, 62).toFixed(0) + '%)'; // tonos amarillos
+        this.centerColor = 'hsl(45 95% 30%)';
+        this.age = 0;
+        this.growth = 0; // 0..1
+        this.swing = rand(0, TAU);
+        this.osc = rand(0.5, 1.6);
+        this.petals = [];
+        for (let i = 0; i < this.petalCount; i++) {
+          this.petals.push({ angle: i / this.petalCount * TAU, bend: rand(0.2, 0.9), twist: rand(-0.2, 0.5) });
+        }
+        this.leaves = [];
+        // add few leaves
+        const leafN = Math.floor(rand(1, 4));
+        for (let i = 0; i < leafN; i++) {
+          this.leaves.push({ angle: rand(0, TAU), len: rand(12, 40) * this.scale });
+        }
+        this.vy = rand(-0.02, 0.02);
+        this.isFalling = false;
+      }
+      update(dt) {
+        this.age += dt;
+        if (this.growth < 1) this.growth += dt * 0.6;
+        this.swing += dt * this.osc * 0.2;
+        if (this.isFalling) { this.y += dt * 40 * this.scale; this.x += Math.sin(this.age * 2) * 0.3; this.vy += dt * 30; }
+      }
+      draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        // gentle sway
+        const sway = Math.sin(this.swing) * 6 * this.scale * (1 - this.growth);
+        ctx.rotate(sway * 0.02);
+
+        // stem
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(-6 * this.scale, 30 * this.scale, 0, 120 * this.scale);
+        ctx.lineWidth = 3 * this.scale; ctx.strokeStyle = 'rgba(60,120,60,0.9)'; ctx.stroke();
+
+        // leaves
+        for (const lf of this.leaves) {
+          ctx.save(); ctx.rotate(lf.angle);
+          ctx.translate(10 * this.scale, 40 * this.scale);
+          drawLeaf(ctx, lf.len, this.scale);
+          ctx.restore();
+        }
+
+        // petals
+        for (let i = 0; i < this.petals.length; i++) {
+          const p = this.petals[i];
+          ctx.save();
+          const ang = p.angle + Math.sin(this.age * (0.6 + p.twist)) * 0.06;
+          ctx.rotate(ang);
+          ctx.translate(0, -this.radius * (1 + 0.1 * Math.sin(this.age * 2 + i)) * this.growth);
+          drawPetal(ctx, this.radius * this.growth, p.bend, this.color, this.growth, i);
+          ctx.restore();
+        }
+
+        // center
+        ctx.beginPath();
+        ctx.arc(0, 0, 8 * this.scale * this.growth, 0, TAU);
+        // radial pattern
+        const grd = ctx.createRadialGradient(0, 0, 2 * this.scale, 0, 0, 12 * this.scale * this.growth);
+        grd.addColorStop(0, '#fff7d9');
+        grd.addColorStop(0.35, this.centerColor);
+        grd.addColorStop(1, '#674100');
+        ctx.fillStyle = grd;
+        ctx.fill();
+
+        ctx.restore();
+      }
+    }
+
+    function drawPetal(ctx, r, bend, color, growth, idx) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      const cp1 = { x: -r * bend, y: -r * 0.3 };
+      const cp2 = { x: -r * bend * 0.2, y: -r * 0.95 };
+      ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, 0, -r);
+      ctx.bezierCurveTo(-cp2.x, cp2.y, -cp1.x, cp1.y, 0, 0);
+      ctx.closePath();
+      // subtle gradient per petal
+      const g = ctx.createLinearGradient(0, -r, 0, 0);
+      g.addColorStop(0, color);
+      g.addColorStop(1, 'rgba(255,240,160,' + (0.5 + 0.5 * growth) + ')');
+      ctx.fillStyle = g;
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 8;
+      ctx.fill();
+    }
+
+    function drawLeaf(ctx, len, scale) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(len * 0.3, -len * 0.2, len * 0.3, -len * 0.8, 0, -len);
+      ctx.bezierCurveTo(-len * 0.3, -len * 0.8, -len * 0.3, -len * 0.2, 0, 0);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(0, -len, 0, 0);
+      g.addColorStop(0, 'rgba(80,170,90,0.9)');
+      g.addColorStop(1, 'rgba(60,120,60,0.95)');
+      ctx.fillStyle = g; ctx.fill();
+    }
+
+    // Particle system for falling petals
+    class PetalParticle {
+      constructor(x, y, color) {
+        this.x = x; this.y = y; this.vx = rand(-30, 30); this.vy = rand(-10, 30);
+        this.life = rand(1.2, 3.5); this.age = 0; this.size = rand(4, 10); this.color = color;
+        this.spin = rand(-2, 2);
+      }
+      update(dt) { this.age += dt; this.vy += dt * 30; this.x += this.vx * dt; this.y += this.vy * dt; this.spin += dt * 0.1 }
+      draw(ctx) {
+        ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.age * this.spin);
+        ctx.beginPath(); ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, TAU); ctx.fillStyle = this.color; ctx.fill(); ctx.restore();
+      }
+    }
+
+    //grass
+    function drawGrass(ctx, W, H) {
+      const bladeCount = Math.floor(W / 6); // número de “hojas”
+      for (let i = 0; i < bladeCount; i++) {
+        const x = i * 6 + Math.random() * 4;
+        const y = H - 20 + Math.random() * 10;
+        const h = 20 + Math.random() * 15;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + Math.sin(Math.random() * 0.5) * 4, y - h);
+        ctx.strokeStyle = 'rgba(60,120,60,0.9)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    // world
+    const flowers = [];
+    const petals = [];
+    let last = performance.now();
+    let raining = false;
+
+    function spawnFlower(x, y, opts) {
+      flowers.push(new Flower(x, y, opts));
+      // gentle chime
+      triggerChime(x / W);
+    }
+
+    function spawnPetal(x, y, color) { petals.push(new PetalParticle(x, y, color)); }
+
+    // interaction
+    let mouseDown = false; let mdTimer = 0;
+    canvas.addEventListener('pointerdown', (e) => { mouseDown = true; mdTimer = 0; spawnFlower(e.clientX + rand(-10, 10), e.clientY + rand(-10, 10), { scale: rand(0.9, 1.6) }); });
+    canvas.addEventListener('pointermove', (e) => { if (mouseDown) { mdTimer += 0.016; if (mdTimer > 0.06) spawnFlower(e.clientX + rand(-6, 6), e.clientY + rand(-6, 6), { scale: rand(0.6, 1.2) }) } });
+    window.addEventListener('pointerup', () => { mouseDown = false });
+
+    // buttons
+    document.getElementById('plantBtn').onclick = () => spawnFlower(rand(80, W - 80), H - 120, { scale: rand(1, 1.8) });
+    document.getElementById('rainBtn').onclick = () => {
+      raining = !raining;
+      document.getElementById('rainBtn').innerHTML = raining
+        ? '<img src="https://cdn-icons-png.flaticon.com/128/9843/9843303.png" alt="Parar lluvia" class="icon">'
+        : '<img src="https://cdn-icons-png.flaticon.com/128/4150/4150897.png" alt="Lluvia de pétalos" class="icon">';
+    }
+
+    // save
+    document.getElementById('saveBtn').onclick = () => {
+      const a = document.createElement('a'); a.download = 'flores_amarillas.png';
+      canvas.toBlob(blob => { a.href = URL.createObjectURL(blob); a.click(); URL.revokeObjectURL(a.href); }, 'image/png');
+    }
+
+    // poem generator (simple, romántico)
+    const poemLines = [
+      'Planto una flor que guarda la luz.',
+      'En cada pétalo, una promesa suave.',
+      'Que tus manos rozan como amaneceres.',
+      'Que tu risa enciende el dorado del día.',
+      'Crecen jardines donde antes hubo dudas.',
+      'Quédate: la flor te nombra con su corola.'
+    ];
+    let poemIndex = 0;
+    function refreshPoem() { document.getElementById('poemText').textContent = poemLines[poemIndex % poemLines.length]; poemIndex++; }
+    setInterval(refreshPoem, 4200);
+    refreshPoem();
+
+    // audio: simple ambient chimes
+    let audioCtx = null; let masterGain = null; let isPlaying = false;
+    function ensureAudio() { if (audioCtx) return; audioCtx = new (window.AudioContext || window.webkitAudioContext)(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.08; masterGain.connect(audioCtx.destination); }
+
+    function triggerChime(normPos) {
+      if (!audioCtx) return; const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+      const freq = 220 + normPos * 440 + rand(-8, 8);
+      o.type = 'sine'; o.frequency.value = freq;
+      g.gain.value = 0.0001; o.connect(g); g.connect(masterGain);
+      const t = audioCtx.currentTime;
+      g.gain.linearRampToValueAtTime(0.08, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
+      o.start(t); o.stop(t + 2.2);
+    }
+
+    async function toggleMusic() {
+      if (!audioCtx) { ensureAudio(); }
+
+      const musicBtn = document.getElementById('toggleMusic');
+
+      if (isPlaying) {
+        masterGain.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.8);
+        isPlaying = false;
+        musicBtn.innerHTML = '<img src="https://cdn-icons-png.flaticon.com/128/70/70776.png" alt="Reproducir música" class="icon">';
+      } else {
+        masterGain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.6);
+        isPlaying = true;
+        musicBtn.innerHTML = '<img src="https://cdn-icons-png.flaticon.com/128/4340/4340038.png" alt="Pausar música" class="icon">';
+      }
+    }
+    document.getElementById('toggleMusic').onclick = () => { if (!audioCtx) ensureAudio(); toggleMusic(); };
+
+    // keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'p') toggleMusic();
+      if (e.key.toLowerCase() === 's') document.getElementById('saveBtn').click();
+    });
+
+    // gentle ambient auto-music: periodic arpeggios
+    let lastArp = 0;
+    function maybeArp(t) { if (!audioCtx || !isPlaying) return; if (t - lastArp > 3.6) { lastArp = t; startArpeggio(); } }
+    function startArpeggio() { const now = audioCtx.currentTime; const base = 200 + Math.random() * 220; for (let i = 0; i < 4; i++) { const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); const f = base * Math.pow(1.12246, i * 2); o.frequency.value = f; o.type = 'triangle'; g.gain.value = 0.0001; o.connect(g); g.connect(masterGain); const t = now + i * 0.22; g.gain.linearRampToValueAtTime(0.06, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2); o.start(t); o.stop(t + 1.5); } }
+
+    // render loop
+    function loop(now) {
+      const dt = Math.min(0.033, (now - last) / 1000);
+      last = now;
+      update(dt);
+      render();
+      maybeArp(now / 1000);
+      requestAnimationFrame(loop);
+    }
+
+    function update(dt) {
+      // update flowers
+      for (let i = flowers.length - 1; i >= 0; i--) { const f = flowers[i]; f.update(dt); if (f.y > H + 120) flowers.splice(i, 1); }
+      // update petals
+      for (let i = petals.length - 1; i >= 0; i--) { petals[i].update(dt); if (petals[i].age > petals[i].life) petals.splice(i, 1); }
+      // raining
+      if (raining) { // spawn some petals from random flowers or top
+        for (let i = 0; i < 3; i++) {
+          const fx = rand(40, W - 40), fy = rand(-40, -10);
+          const col = 'rgba(255,230,' + Math.floor(rand(120, 200)) + ',0.95)';
+          spawnPetal(fx, fy, col);
+        }
+      }
+    }
+
+    class GrassBlade {
+      constructor(x, canvasHeight, height = 25, level = 0) {
+        this.x = x;
+        this.baseY = canvasHeight; // base de la pantalla
+        this.height = height;
+        this.angle = Math.random() * 0.2 - 0.1; // inclinación inicial
+        this.speed = Math.random() * 0.002 + 0.001;
+        this.offset = Math.random() * 100;
+        this.level = level; // nivel de jerarquía
+        this.children = [];
+
+        // Subhojas
+        if (level < 2) {
+          const numChildren = Math.floor(Math.random() * 2) + 1;
+          for (let i = 0; i < numChildren; i++) {
+            const childHeight = this.height * (0.5 + Math.random() * 0.3);
+            const childX = this.x + (Math.random() * 6 - 3);
+            this.children.push(new GrassBlade(childX, this.baseY - this.height * 0.7, childHeight, level + 1));
+          }
+        }
+      }
+
+      update(time) {
+        this.sway = Math.sin(time * this.speed + this.offset) * 0.2;
+        for (const c of this.children) c.update(time);
+      }
+
+      draw(ctx) {
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.baseY);
+        const cpX = this.x + Math.sin(this.angle + this.sway) * 6;
+        const cpY = this.baseY - this.height * 0.5;
+        ctx.quadraticCurveTo(cpX, cpY, this.x + Math.sin(this.angle + this.sway) * 2, this.baseY - this.height);
+        ctx.strokeStyle = 'rgba(60,120,60,0.9)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        for (const c of this.children) c.draw(ctx);
+      }
+    }
+
+    let grassBlades = [];
+    function createGrass() {
+      grassBlades = [];
+      const grassCount = Math.floor(W / 6);
+      for (let i = 0; i < grassCount; i++) {
+        const h = rand(20, 35); // altura variable
+        grassBlades.push(new GrassBlade(i * 6 + rand(0, 4), H, h));
+      }
+    }
+
+    // Llamar al inicio y al redimensionar
+    createGrass();
+    window.addEventListener('resize', () => {
+      W = canvas.width = innerWidth;
+      H = canvas.height = innerHeight;
+      createGrass();
+    });
+
+    function drawGrass(ctx, time) {
+      for (const blade of grassBlades) {
+        blade.update(time);
+        blade.draw(ctx);
+      }
+    }
+
+    function render() {
+      // background gradient
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, 'rgba(12,8,20,1)'); g.addColorStop(1, 'rgba(18,14,34,1)');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+      // césped animado
+      drawGrass(ctx, performance.now());
+
+      // soft glow
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < flowers.length; i++) {
+        const f = flowers[i]; ctx.beginPath(); ctx.arc(f.x, f.y - 6, 50 * f.scale * (0.4 + 0.6 * f.growth), 0, TAU);
+        ctx.fillStyle = 'rgba(255,220,120,0.02)'; ctx.fill();
+      }
+      ctx.restore();
+
+      // draw petals behind
+      for (const p of petals) p.draw(ctx);
+
+      // draw flowers
+      // sort by y for faux depth
+      flowers.sort((a, b) => (a.y - b.y));
+      for (const f of flowers) f.draw(ctx);
+
+      // foreground: subtle vignette
+      const v = ctx.createRadialGradient(W / 2, H / 2, Math.max(W, H) * 0.2, W / 2, H / 2, Math.max(W, H));
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.35)');
+      ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+    }
+
+    // initial garden
+    for (let i = 0; i < 6; i++) spawnFlower(rand(120, W - 120), rand(H - 220, H - 140), { scale: rand(0.9, 1.6) });
+
+    requestAnimationFrame((t) => { last = t; loop(t); });
+
+    // small easter egg: double-click to release a shower of petals from all flowers
+    canvas.addEventListener('dblclick', () => {
+      for (let f of flowers) { for (let i = 0; i < 12; i++) { const col = 'rgba(255,230,' + Math.floor(rand(120, 200)) + ',0.95)'; spawnPetal(f.x + rand(-20, 20), f.y + rand(-20, 20), col); } }
+      if (audioCtx) { for (let i = 0; i < 6; i++) triggerChime(i / 6); }
+    });
+
+    // subtle auto-beautify: randomly make a flower fall (petals scattering) occasionally
+    setInterval(() => {
+      if (flowers.length > 0 && Math.random() < 0.18) {
+        const idx = Math.floor(Math.random() * flowers.length); const f = flowers[idx]; f.isFalling = true; // spawn petals
+        for (let i = 0; i < 16; i++) { spawnPetal(f.x + rand(-8, 8), f.y + rand(-8, 8), 'rgba(255,230,' + Math.floor(rand(120, 200)) + ',0.95)'); }
+        if (audioCtx) triggerChime((f.x / W));
+      }
+    }, 4500);
+
+    // accessibility: hint for first interaction needed to start audio on mobile
+    canvas.addEventListener('pointerdown', async () => {
+      if (!audioCtx) { try { ensureAudio(); await audioCtx.resume(); masterGain.gain.value = isPlaying ? 0.08 : 0.0001; } catch (e) { } }
+    });
+
+    // tiny intro animation: typewriter title (in the poem box)
+    (function typeTitle() { const el = document.getElementById('poemText'); const text = el.textContent; el.textContent = ''; let i = 0; const t = setInterval(() => { el.textContent += text[i++]; if (i >= text.length) clearInterval(t); }, 30); })();
+
+  </script>
+</body>
+
+</html>
